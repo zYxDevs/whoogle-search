@@ -30,10 +30,14 @@ def get_rule_for_selector(stylesheet: CSSStyleSheet,
     Returns:
         Optional[CSSStyleRule] -- the rule that matches the selector or None
     """
-    for rule in stylesheet.cssRules:
-        if hasattr(rule, "selectorText") and selector == rule.selectorText:
-            return rule
-    return None
+    return next(
+        (
+            rule
+            for rule in stylesheet.cssRules
+            if hasattr(rule, "selectorText") and selector == rule.selectorText
+        ),
+        None,
+    )
 
 
 class Config:
@@ -62,7 +66,7 @@ class Config:
         self.anon_view = read_config_bool('WHOOGLE_CONFIG_ANON_VIEW')
         self.preferences_encrypted = read_config_bool('WHOOGLE_CONFIG_PREFERENCES_ENCRYPTED')
         self.preferences_key = os.getenv('WHOOGLE_CONFIG_PREFERENCES_KEY', '')
-        
+
         self.accept_language = False
 
         self.safe_keys = [
@@ -85,9 +89,9 @@ class Config:
         if kwargs:
             mutable_attrs = self.get_mutable_attrs()
             for attr in mutable_attrs:
-                if attr in kwargs.keys():
+                if attr in kwargs:
                     setattr(self, attr, kwargs[attr])
-                elif attr not in kwargs.keys() and mutable_attrs[attr] == bool:
+                elif mutable_attrs[attr] == bool:
                     setattr(self, attr, False)
 
     def __getitem__(self, name):
@@ -227,14 +231,13 @@ class Config:
         for safe_key in keys:
             if not self[safe_key]:
                 continue
-            param_str = param_str + f'&{safe_key}={self[safe_key]}'
+            param_str = f'{param_str}&{safe_key}={self[safe_key]}'
 
         return param_str
 
     def _get_fernet_key(self, password: str) -> bytes:
         hash_object = hashlib.md5(password.encode())
-        key = urlsafe_b64encode(hash_object.hexdigest().encode())
-        return key
+        return urlsafe_b64encode(hash_object.hexdigest().encode())
 
     def _encode_preferences(self) -> str:
         encoded_preferences = brotli.compress(pickle.dumps(self.get_attrs()))

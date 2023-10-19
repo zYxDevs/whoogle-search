@@ -32,7 +32,7 @@ def gen_bangs_json(bangs_file: str) -> None:
         bang_command = '!' + row['t']
         bangs_data[bang_command] = {
             'url': row['u'].replace('{{{s}}}', '{}'),
-            'suggestion': bang_command + ' (' + row['s'] + ')'
+            'suggestion': f'{bang_command} (' + row['s'] + ')',
         }
 
     json.dump(bangs_data, open(bangs_file, 'w'))
@@ -77,14 +77,11 @@ def resolve_bang(query: str, bangs_dict: dict) -> str:
         # rebuild the query string
         bang_query = ' '.join(split_query).strip()
 
-        # Check if operator is a key in bangs and get bang if exists
-        bang = bangs_dict.get(operator.lower(), None)
-        if bang:
+        if bang := bangs_dict.get(operator.lower(), None):
             bang_url = bang['url']
 
             if bang_query:
                 return bang_url.replace('{}', bang_query, 1)
-            else:
-                parsed_url = urlparse.urlparse(bang_url)
-                return f'{parsed_url.scheme}://{parsed_url.netloc}'
+            parsed_url = urlparse.urlparse(bang_url)
+            return f'{parsed_url.scheme}://{parsed_url.netloc}'
     return ''

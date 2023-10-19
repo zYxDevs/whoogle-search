@@ -313,8 +313,7 @@ def search():
     search_util = Search(request, g.user_config, g.session_key)
     query = search_util.new_search_query()
 
-    bang = resolve_bang(query, bang_json)
-    if bang:
+    if bang := resolve_bang(query, bang_json):
         return redirect(bang)
 
     # Redirect to home if invalid/blank search
@@ -348,7 +347,7 @@ def search():
     response = str(soup)
 
     # Return 503 if temporarily blocked by captcha
-    if has_captcha(str(response)):
+    if has_captcha(response):
         app.logger.error('503 (CAPTCHA)')
         return render_template(
             'error.html',
@@ -367,7 +366,7 @@ def search():
         html_soup = bsoup(str(response), 'html.parser')
         if search_util.widget == 'ip':
             response = add_ip_card(html_soup, get_client_ip(request))
-        elif search_util.widget == 'calculator' and not 'nojs' in request.args:
+        elif search_util.widget == 'calculator' and 'nojs' not in request.args:
             response = add_calculator_card(html_soup)
 
     # Update tabs content
@@ -377,11 +376,7 @@ def search():
                             g.user_config.preferences,
                             translation)
 
-    # Feature to display currency_card
-    # Since this is determined by more than just the
-    # query is it not defined as a standard widget
-    conversion = check_currency(str(response))
-    if conversion:
+    if conversion := check_currency(str(response)):
         html_soup = bsoup(str(response), 'html.parser')
         response = add_currency_card(html_soup, conversion)
 
@@ -442,14 +437,13 @@ def config():
     if request.method == 'GET':
         return json.dumps(g.user_config.__dict__)
     elif request.method == 'PUT' and not config_disabled:
-        if name:
-            config_pkl = os.path.join(app.config['CONFIG_PATH'], name)
-            session['config'] = (pickle.load(open(config_pkl, 'rb'))
-                                 if os.path.exists(config_pkl)
-                                 else session['config'])
-            return json.dumps(session['config'])
-        else:
+        if not name:
             return json.dumps({})
+        config_pkl = os.path.join(app.config['CONFIG_PATH'], name)
+        session['config'] = (pickle.load(open(config_pkl, 'rb'))
+                             if os.path.exists(config_pkl)
+                             else session['config'])
+        return json.dumps(session['config'])
     elif not config_disabled:
         config_data = request.form.to_dict()
         if 'url' not in config_data or not config_data['url']:
@@ -500,14 +494,12 @@ def element():
     try:
         response = g.user_request.send(base_url=src_url)
 
-        # Display an empty gif if the requested element couldn't be retrieved
         if response.status_code != 200 or len(response.content) == 0:
-            if 'favicon' in src_url:
-                favicon = fetch_favicon(src_url)
-                return send_file(io.BytesIO(favicon), mimetype='image/png')
-            else:
+            if 'favicon' not in src_url:
                 return send_file(io.BytesIO(empty_gif), mimetype='image/gif')
 
+            favicon = fetch_favicon(src_url)
+            return send_file(io.BytesIO(favicon), mimetype='image/png')
         file_data = response.content
         tmp_mem = io.BytesIO()
         tmp_mem.write(file_data)
@@ -594,13 +586,13 @@ def window():
     )
 
 
-@app.route(f'/robots.txt')
+@app.route('/robots.txt')
 def robots():
-    response = make_response(
-'''User-Agent: *
+        response = make_response(
+    '''User-Agent: *
 Disallow: /''', 200)
-    response.mimetype = 'text/plain'
-    return response
+        response.mimetype = 'text/plain'
+        return response
 
 
 @app.errorhandler(404)
@@ -681,5 +673,6 @@ def run_app() -> None:
     else:
         waitress.serve(
             app,
-            listen="{}:{}".format(args.host, args.port),
-            url_prefix=os.environ.get('WHOOGLE_URL_PREFIX', ''))
+            listen=f"{args.host}:{args.port}",
+            url_prefix=os.environ.get('WHOOGLE_URL_PREFIX', ''),
+        )

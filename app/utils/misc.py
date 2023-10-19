@@ -38,14 +38,13 @@ def fetch_favicon(url: str) -> bytes:
 
     response = get(f'{ddg_favicon_site}/{domain}.ico')
 
-    if response.status_code == 200 and len(response.content) > 0:
-        tmp_mem = io.BytesIO()
-        tmp_mem.write(response.content)
-        tmp_mem.seek(0)
-
-        return tmp_mem.read()
-    else:
+    if response.status_code != 200 or len(response.content) <= 0:
         return placeholder_img
+    tmp_mem = io.BytesIO()
+    tmp_mem.write(response.content)
+    tmp_mem.seek(0)
+
+    return tmp_mem.read()
 
 
 def gen_file_hash(path: str, static_file: str) -> str:
@@ -53,7 +52,7 @@ def gen_file_hash(path: str, static_file: str) -> str:
     file_hash = hashlib.md5(file_contents).hexdigest()[:8]
     filename_split = os.path.splitext(static_file)
 
-    return filename_split[0] + '.' + file_hash + filename_split[-1]
+    return f'{filename_split[0]}.{file_hash}{filename_split[-1]}'
 
 
 def read_config_bool(var: str) -> bool:

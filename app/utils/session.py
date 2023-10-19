@@ -31,9 +31,4 @@ def valid_user_session(session: dict) -> bool:
               available
 
     """
-    # Generate secret key for user if unavailable
-    for value in REQUIRED_SESSION_VALUES:
-        if value not in session:
-            return False
-
-    return True
+    return all(value in session for value in REQUIRED_SESSION_VALUES)

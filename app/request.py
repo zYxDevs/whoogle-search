@@ -42,12 +42,9 @@ class TorError(Exception):
 def send_tor_signal(signal: Signal) -> bool:
     use_pass = read_config_bool('WHOOGLE_TOR_USE_PASS')
 
-    confloc = './misc/tor/control.conf'
     # Check that the custom location of conf is real.
     temp = os.getenv('WHOOGLE_TOR_CONF', '')
-    if os.path.isfile(temp):
-        confloc = temp
-
+    confloc = temp if os.path.isfile(temp) else './misc/tor/control.conf'
     # Attempt to authenticate and send signal.
     try:
         with Controller.from_port(port=9051) as c:
@@ -64,8 +61,7 @@ def send_tor_signal(signal: Signal) -> bool:
             c.signal(signal)
             os.environ['TOR_AVAILABLE'] = '1'
             return True
-    except (SocketError, AuthenticationFailure,
-            ConnectionRefusedError, ConnectionError):
+    except (SocketError, AuthenticationFailure, ConnectionError):
         # TODO: Handle Tor authentication (password and cookie)
         os.environ['TOR_AVAILABLE'] = '0'
 
@@ -98,22 +94,14 @@ def gen_query(query, args, config) -> str:
     lang = ''
     if ':past' in query and 'tbs' not in args:
         time_range = str.strip(query.split(':past', 1)[-1])
-        param_dict['tbs'] = '&tbs=' + ('qdr:' + str.lower(time_range[0]))
+        param_dict['tbs'] = f'&tbs=qdr:{str.lower(time_range[0])}'
     elif 'tbs' in args or 'tbs' in config:
         result_tbs = args.get('tbs') if 'tbs' in args else config['tbs']
-        param_dict['tbs'] = '&tbs=' + result_tbs
+        param_dict['tbs'] = f'&tbs={result_tbs}'
 
-        # Occasionally the 'tbs' param provided by google also contains a
-        # field for 'lr', but formatted strangely. This is a rough solution
-        # for this.
-        #
-        # Example:
-        # &tbs=qdr:h,lr:lang_1pl
-        # -- the lr param needs to be extracted and remove the leading '1'
-        result_params = [_ for _ in result_tbs.split(',') if 'lr:' in _]
-        if len(result_params) > 0:
+        if result_params := [_ for _ in result_tbs.split(',') if 'lr:' in _]:
             result_param = result_params[0]
-            lang = result_param[result_param.find('lr:') + 3:len(result_param)]
+            lang = result_param[result_param.find('lr:') + 3:]
 
     # Ensure search query is parsable
     query = urlparse.quote(query)
@@ -128,7 +116,7 @@ def gen_query(query, args, config) -> str:
 
     # Search for results near a particular city, if available
     if config.near:
-        param_dict['near'] = '&near=' + urlparse.quote(config.near)
+        param_dict['near'] = f'&near={urlparse.quote(config.near)}'
 
     # Set language for results (lr) if source isn't set, otherwise use the
     # result language param provided in the results
@@ -138,9 +126,7 @@ def gen_query(query, args, config) -> str:
             [_ for _ in lang if not _.isdigit()]
         )) if lang else ''
     else:
-        param_dict['lr'] = (
-            '&lr=' + config.lang_search
-        ) if config.lang_search else ''
+        param_dict['lr'] = f'&lr={config.lang_search}' if config.lang_search else ''
 
     # 'nfpr' defines the exclusion of results from an auto-corrected query
     if 'nfpr' in args:
@@ -151,9 +137,7 @@ def gen_query(query, args, config) -> str:
     if 'chips' in args:
         param_dict['chips'] = '&chips=' + args.get('chips')
 
-    param_dict['gl'] = (
-        '&gl=' + config.country
-    ) if config.country else ''
+    param_dict['gl'] = f'&gl={config.country}' if config.country else ''
     param_dict['hl'] = (
         '&hl=' + config.lang_interface.replace('lang_', '')
     ) if config.lang_interface else ''
@@ -164,7 +148,7 @@ def gen_query(query, args, config) -> str:
     for blocked_site in config.block.replace(' ', '').split(','):
         if not blocked_site:
             continue
-        block = (' -site:' + blocked_site)
+        block = f' -site:{blocked_site}'
         query += block if block not in unquoted_query else ''
 
     for val in param_dict.values():
@@ -198,27 +182,18 @@ class Request:
 
         self.country = config.country if config.country else ''
 
-        # For setting Accept-language Header
-        self.lang_interface = ''
-        if config.accept_language:
-            self.lang_interface = config.lang_interface
-
+        self.lang_interface = config.lang_interface if config.accept_language else ''
         self.mobile = bool(normal_ua) and ('Android' in normal_ua
                                            or 'iPhone' in normal_ua)
         self.modified_user_agent = gen_user_agent(self.mobile)
         if not self.mobile:
             self.modified_user_agent_mobile = gen_user_agent(True)
 
-        # Set up proxy, if previously configured
-        proxy_path = os.environ.get('WHOOGLE_PROXY_LOC', '')
-        if proxy_path:
+        if proxy_path := os.environ.get('WHOOGLE_PROXY_LOC', ''):
             proxy_type = os.environ.get('WHOOGLE_PROXY_TYPE', '')
             proxy_user = os.environ.get('WHOOGLE_PROXY_USER', '')
             proxy_pass = os.environ.get('WHOOGLE_PROXY_PASS', '')
-            auth_str = ''
-            if proxy_user:
-                auth_str = f'{proxy_user}:{proxy_pass}@'
-
+            auth_str = f'{proxy_user}:{proxy_pass}@' if proxy_user else ''
             proxy_str = f'{proxy_type}://{auth_str}{proxy_path}'
             self.proxies = {
                 'https': proxy_str,
@@ -288,11 +263,10 @@ class Request:
         use_client_user_agent = int(os.environ.get('WHOOGLE_USE_CLIENT_USER_AGENT', '0'))
         if user_agent and use_client_user_agent == 1:
             modified_user_agent = user_agent
+        elif force_mobile and not self.mobile:
+            modified_user_agent = self.modified_user_agent_mobile
         else:
-            if force_mobile and not self.mobile:
-                modified_user_agent = self.modified_user_agent_mobile
-            else:
-                modified_user_agent = self.modified_user_agent
+            modified_user_agent = self.modified_user_agent
 
         headers = {
             'User-Agent': modified_user_agent
@@ -300,9 +274,9 @@ class Request:
 
         # Adding the Accept-Language to the Header if possible
         if self.lang_interface:
-            headers.update({'Accept-Language':
-                            self.lang_interface.replace('lang_', '')
-                            + ';q=1.0'})
+            headers['Accept-Language'] = (
+                self.lang_interface.replace('lang_', '') + ';q=1.0'
+            )
 
         # view is suppressed correctly
         now = datetime.now()
