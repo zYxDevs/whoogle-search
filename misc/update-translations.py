@@ -9,10 +9,7 @@ def format_lang(lang: str) -> str:
     # Chinese (traditional and simplified) require
     # a different format for lingva translations
     if 'zh-' in lang:
-        if lang == 'zh-TW':
-            return 'zh_HANT'
-        return 'zh'
-
+        return 'zh_HANT' if lang == 'zh-TW' else 'zh'
     # Strip lang prefix to leave only the actual
     # language code (i.e. 'en', 'fr', etc)
     return lang.replace('lang_', '')
@@ -27,9 +24,7 @@ def translate(v: str, lang: str) -> str:
 
     response = requests.get(lingva_req).json()
 
-    if 'translation' in response:
-        return response['translation']
-    return ''
+    return response['translation'] if 'translation' in response else ''
 
 
 if __name__ == '__main__':
@@ -49,14 +44,7 @@ if __name__ == '__main__':
                     continue
 
                 translation = ''
-                if len(k) == 0:
-                    # Special case for placeholder text that gets used
-                    # for translations without any key present
-                    translation = v
-                else:
-                    # Translate the string using lingva
-                    translation = translate(v, lang)
-
+                translation = v if len(k) == 0 else translate(v, lang)
                 if len(translation) == 0:
                     print(f'! Unable to translate {lang}[{k}]')
                     continue

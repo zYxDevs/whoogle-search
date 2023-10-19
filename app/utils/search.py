@@ -95,12 +95,11 @@ class Search:
 
         if q is None or len(q) == 0:
             return ''
-        else:
-            # Attempt to decrypt if this is an internal link
-            try:
-                q = Fernet(self.session_key).decrypt(q.encode()).decode()
-            except InvalidToken:
-                pass
+        # Attempt to decrypt if this is an internal link
+        try:
+            q = Fernet(self.session_key).decrypt(q.encode()).decode()
+        except InvalidToken:
+            pass
 
         # Strip leading '! ' for "feeling lucky" queries
         self.feeling_lucky = q.startswith('! ')
@@ -163,20 +162,20 @@ class Search:
 
         if self.feeling_lucky:
             return get_first_link(html_soup)
-        else:
-            formatted_results = content_filter.clean(html_soup)
+        formatted_results = content_filter.clean(html_soup)
 
             # Append user config to all search links, if available
-            param_str = ''.join('&{}={}'.format(k, v)
-                                for k, v in
-                                self.request_params.to_dict(flat=True).items()
-                                if self.config.is_safe_key(k))
-            for link in formatted_results.find_all('a', href=True):
-                link['rel'] = "nofollow noopener noreferrer"
-                if 'search?' not in link['href'] or link['href'].index(
-                        'search?') > 1:
-                    continue
-                link['href'] += param_str
+        param_str = ''.join(
+            f'&{k}={v}'
+            for k, v in self.request_params.to_dict(flat=True).items()
+            if self.config.is_safe_key(k)
+        )
+        for link in formatted_results.find_all('a', href=True):
+            link['rel'] = "nofollow noopener noreferrer"
+            if 'search?' not in link['href'] or link['href'].index(
+                    'search?') > 1:
+                continue
+            link['href'] += param_str
 
-            return str(formatted_results)
+        return str(formatted_results)
 

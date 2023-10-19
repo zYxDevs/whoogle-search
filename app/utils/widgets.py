@@ -17,8 +17,7 @@ def add_ip_card(html_soup: BeautifulSoup, ip: str) -> BeautifulSoup:
         BeautifulSoup
 
     """
-    main_div = html_soup.select_one('#main')
-    if main_div:
+    if main_div := html_soup.select_one('#main'):
         # HTML IP card tag
         ip_tag = html_soup.new_tag('div')
         ip_tag['class'] = 'ZINbbc xpd O9g5cc uUPGi'
@@ -51,21 +50,18 @@ def add_calculator_card(html_soup: BeautifulSoup) -> BeautifulSoup:
     Returns:
         BeautifulSoup
     """
-    main_div = html_soup.select_one('#main')
-    if main_div:
-        # absolute path
-        widget_file = open(BASE_DIR / 'app/static/widgets/calculator.html', encoding="utf8")
-        widget_tag = html_soup.new_tag('div')
-        widget_tag['class'] = 'ZINbbc xpd O9g5cc uUPGi'
-        widget_tag['id'] = 'calculator-wrapper'
-        calculator_text = html_soup.new_tag('div')
-        calculator_text['class'] = 'kCrYT ip-address-div'
-        calculator_text.string = 'Calculator'
-        calculator_widget = html_soup.new_tag('div')
-        calculator_widget.append(BeautifulSoup(widget_file, 'html.parser'))
-        calculator_widget['class'] = 'kCrYT ip-text-div'
-        widget_tag.append(calculator_text)
-        widget_tag.append(calculator_widget)
-        main_div.insert_before(widget_tag)
-        widget_file.close()
+    if main_div := html_soup.select_one('#main'):
+        with open(BASE_DIR / 'app/static/widgets/calculator.html', encoding="utf8") as widget_file:
+            widget_tag = html_soup.new_tag('div')
+            widget_tag['class'] = 'ZINbbc xpd O9g5cc uUPGi'
+            widget_tag['id'] = 'calculator-wrapper'
+            calculator_text = html_soup.new_tag('div')
+            calculator_text['class'] = 'kCrYT ip-address-div'
+            calculator_text.string = 'Calculator'
+            calculator_widget = html_soup.new_tag('div')
+            calculator_widget.append(BeautifulSoup(widget_file, 'html.parser'))
+            calculator_widget['class'] = 'kCrYT ip-text-div'
+            widget_tag.append(calculator_text)
+            widget_tag.append(calculator_widget)
+            main_div.insert_before(widget_tag)
     return html_soup

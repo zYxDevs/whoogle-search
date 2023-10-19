@@ -126,7 +126,7 @@ app.config['HAS_UPDATE'] = ''
 # related searches.
 translate_url = os.getenv('WHOOGLE_ALT_TL', 'https://farside.link/lingva')
 if not translate_url.startswith('http'):
-    translate_url = 'https://' + translate_url
+    translate_url = f'https://{translate_url}'
 app.config['TRANSLATE_URL'] = translate_url
 
 app.config['CSP'] = 'default-src \'none\';' \

@@ -18,17 +18,13 @@ def get_search_results(data):
     main_divs = soup.find('div', {'id': 'main'})
     assert len(main_divs) > 1
 
-    result_divs = []
-    for div in main_divs:
-        # Result divs should only have 1 inner div
-        if (len(list(div.children)) != 1
-                or not div.findChild()
-                or 'div' not in div.findChild().name):
-            continue
-
-        result_divs.append(div)
-
-    return result_divs
+    return [
+        div
+        for div in main_divs
+        if len(list(div.children)) == 1
+        and div.findChild()
+        and 'div' in div.findChild().name
+    ]
 
 
 def test_get_results(client):
@@ -61,12 +57,12 @@ def test_block_results(client):
     rv = client.get(f'/{Endpoint.search}?q=pinterest')
     assert rv._status_code == 200
 
-    has_pinterest = False
-    for link in BeautifulSoup(rv.data, 'html.parser').find_all('a', href=True):
-        if 'pinterest.com' in urlparse(link['href']).netloc:
-            has_pinterest = True
-            break
-
+    has_pinterest = any(
+        'pinterest.com' in urlparse(link['href']).netloc
+        for link in BeautifulSoup(rv.data, 'html.parser').find_all(
+            'a', href=True
+        )
+    )
     assert has_pinterest
 
     demo_config['block'] = 'pinterest.com'
@@ -77,10 +73,8 @@ def test_block_results(client):
     assert rv._status_code == 200
 
     for link in BeautifulSoup(rv.data, 'html.parser').find_all('a', href=True):
-        result_site = urlparse(link['href']).netloc
-        if not result_site:
-            continue
-        assert result_site not in 'pinterest.com'
+        if result_site := urlparse(link['href']).netloc:
+            assert result_site not in 'pinterest.com'
 
 
 def test_view_my_ip(client):
@@ -101,7 +95,7 @@ def test_recent_results(client):
     }
 
     for time, num_days in times.items():
-        rv = client.get(f'/{Endpoint.search}?q=test :' + time)
+        rv = client.get(f'/{Endpoint.search}?q=test :{time}')
         result_divs = get_search_results(rv.data)
 
         current_date = datetime.now()

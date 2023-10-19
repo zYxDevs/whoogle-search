@@ -16,7 +16,7 @@ SKIP_PREFIX = ['//www.', '//mobile.', '//m.', 'www.', 'mobile.', 'm.']
 GOOG_STATIC = 'www.gstatic.com'
 G_M_LOGO_URL = 'https://www.gstatic.com/m/images/icons/googleg.gif'
 GOOG_IMG = '/images/branding/searchlogo/1x/googlelogo'
-LOGO_URL = GOOG_IMG + '_desk'
+LOGO_URL = f'{GOOG_IMG}_desk'
 BLANK_B64 = ('data:image/png;base64,'
              'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAQAAAAnOwc2AAAAD0lEQVR42mNkw'
              'AIYh7IgAAVVAAuInjI5AAAAAElFTkSuQmCC')
@@ -111,8 +111,7 @@ def bold_search_terms(response: str, query: str) -> BeautifulSoup:
     # Split all words out of query, grouping the ones wrapped in quotes
     for word in re.split(r'\s+(?=[^"]*(?:"[^"]*"[^"]*)*$)', query):
         word = re.sub(r'[@_!#$%^&*()<>?/\|}{~:]+', '', word)
-        target = response.find_all(
-            text=re.compile(r'' + re.escape(word), re.I))
+        target = response.find_all(text=re.compile(f'{re.escape(word)}', re.I))
         for nav_str in target:
             replace_any_case(nav_str, word)
 
@@ -144,12 +143,14 @@ def get_first_link(soup: BeautifulSoup) -> str:
         str: A str link to the first result
 
     """
-    # Replace hrefs with only the intended destination (no "utm" type tags)
-    for a in soup.find_all('a', href=True):
-        # Return the first search result URL
-        if 'url?q=' in a['href']:
-            return filter_link_args(a['href'])
-    return ''
+    return next(
+        (
+            filter_link_args(a['href'])
+            for a in soup.find_all('a', href=True)
+            if 'url?q=' in a['href']
+        ),
+        '',
+    )
 
 
 def get_site_alt(link: str) -> str:
@@ -238,8 +239,8 @@ def filter_link_args(link: str) -> str:
 
     # Remove original link query and replace with filtered args
     link = link.replace(parsed_link.query, '')
-    if len(safe_args) > 0:
-        link = link + urlparse.urlencode(safe_args, doseq=True)
+    if safe_args:
+        link += urlparse.urlencode(safe_args, doseq=True)
     else:
         link = link.replace('?', '')
 
@@ -296,8 +297,7 @@ def check_currency(response: str) -> dict:
 
     """
     soup = BeautifulSoup(response, 'html.parser')
-    currency_link = soup.find('a', {'href': 'https://g.co/gfd'})
-    if currency_link:
+    if currency_link := soup.find('a', {'href': 'https://g.co/gfd'}):
         while 'class' not in currency_link.attrs or \
                 'ZINbbc' not in currency_link.attrs['class']:
             if currency_link.parent:
